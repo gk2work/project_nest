@@ -1,47 +1,44 @@
 import { HttpException, Injectable } from '@nestjs/common';
 import { CARS } from './cars.mock';
-
+import { Model } from 'mongoose';
+import { InjectModel } from '@nestjs/mongoose';
+import { ICar } from './interfaces/car.interface';
+import { CarDto } from './car.dto';
 @Injectable()
 export class CarService {
 
-    private cars = CARS;
+    constructor(@InjectModel('car') private readonly carmodel: Model <ICar>){}
 
-    public getCars(){
-        return this.cars;
-    }
-    public postCar(car){
-        return this.cars.push(car);
-    }
-    public getCarById(id: number): Promise<any>{
-        const carId = Number(id);
-        return new Promise((resolve) => {
-            const car = this.cars.find((car) => Number(car.id) === carId);
-            if (!car){
-                throw new HttpException('Book does not exist!', 404);
-            }
-            return resolve(car);
-        });
-    }
-    public deleteCarById(id: number): Promise<any>{
-        const carId = Number(id);
-        return new Promise((resolve) => {
-        const index = this.cars.findIndex((car) => car.id === carId.toString());
-        if (index === -1){
+    public async getCars(): Promise<CarDto[]>{
+        const cars = await this.carmodel.find().exec();
+        if (!cars || !cars[0]){
             throw new HttpException('Not Found', 404);
         }
-        this.cars.splice(index, 1); 
-        return resolve(this.cars);
-    });
+        return cars;
     }
-    public async putCarById(id: number, propertyName: string, propertyValue: string): Promise<any>{
-        const carId = Number(id);
-        return new Promise((resolve) => {
-        const index = this.cars.findIndex((car) => car.id === carId.toString());
-        if (index === -1){
+    public async postCar(nawCar: CarDto) {
+        const car = await new this.carmodel(nawCar);
+        return car.save();
+    }
+    public async getCarById(id: number): Promise<CarDto>{
+        const car = await this.carmodel.findOne({ id }).exec();
+        if (!car){
             throw new HttpException('Not Found', 404);
         }
-        this.cars[index][propertyName] = propertyValue;
-        return resolve(this.cars[index]);
-        });
+            return car;
+    }
+    public async deleteCarById(id: number): Promise<{ message: string }>{
+        const result = await this.carmodel.deleteOne({ id }).exec();
+        if (result.deletedCount === 0) {
+            throw new HttpException('Not Found', 404);
+        }
+        return { message: 'Car successfully deleted' };
+    }
+    public async putCarById(id: number, propertyName: string, propertyValue: string): Promise<CarDto>{
+        const car = await this.carmodel.findOneAndUpdate({ id } , { [propertyName]: propertyValue},).exec();
+        if (!car){
+            throw new HttpException('Not Found', 404);
+        }
+            return car;
     }
 }
